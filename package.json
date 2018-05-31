@@ -1,0 +1,14 @@
+{
+  "name": "kangaroo",
+  "version": "1.0.0",
+  "description": "treasure chest",
+  "repository": "https://github.com/ruichengping/kangaroo.git",
+  "author": "长卿 <changqing@dtstack.com>",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.15.1"
+  },
+  "bin": {
+    "roo": "./bin/roo"
+  }
+}

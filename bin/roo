@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+
+require('commander')
+  .version(require('../package').version)
+  .usage('<command> [options]')
+  .command('publish', 'publish web application')
+  .command('backup', 'backup resource in history')
+  .command('nginx', 'change config about nginx')
+  .parse(process.argv)
