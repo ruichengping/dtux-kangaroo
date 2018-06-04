@@ -1,4 +1,115 @@
 #!/usr/bin/env node
 
+const program = require('commander');
+const readConfig=require('../utils/readConfig');
+const node_ssh = require('node-ssh');
+const async=require('async');
+const chalk=require('chalk');
 
 
+program
+  .option('-c, --config [config]', 'use specified config')
+  .parse(process.argv);
+
+const{local,origin}=readConfig(program);
+const ssh=new node_ssh();
+
+ssh.connect({
+  host:origin.host,
+  username:origin.username,
+  password:origin.password
+}).then(()=>{
+  async.eachSeries([
+    checkNginxConfig,
+    checkOriginResourceDirectory,
+    putResourceToOrigin
+  ],function(subfunction,next){
+    subfunction(next);
+  })
+}).catch((error)=>{
+  console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
+  console.log(error);
+  ssh.dispose();
+});
+
+
+//检测nginx配置是否正常
+function checkNginxConfig(callback){
+  ssh.execCommand(`find ${origin.nginxConfigFilePath}`).then((result)=>{ 
+    const {code,stderr}=result;
+    if(code===0){
+      console.log(chalk.green(`远程服务器(${origin.host})的nginx配置检测正常`));
+      if(typeof callback === 'function'){
+        callback();
+      }
+    }else{
+      console.log(chalk.red(`远程服务器(${origin.host})的nginx配置检测异常，确认是否执行了roo nginx命令进行nginx配置`));
+      console.log(`${chalk.red('Failed:')} ${stderr}`);
+      ssh.dispose(); 
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})的nginx配置检测失败`));
+    console.log(error);   
+    ssh.dispose(); 
+  });
+}
+
+//检查远程资源目录是否存在
+function checkOriginResourceDirectory(callback){
+ ssh.execCommand(`find ${origin.resourceDirectory}`).then((result)=>{
+    const {code,stderr}=result;
+    if(code===0){
+      awadeleteOriginResourceDirectory(callback);
+    }else{
+      callback();
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})下(${origin.resourceDirectory})的内容删除失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}
+
+//删除远程资源目录下的内容
+function deleteOriginResourceDirectory(callback){
+  ssh.execCommand(`rm -rf ${origin.resourceDirectory}/*`).then((result)=>{
+    console.log(chalk.green(`远程服务器(${origin.host})下(${origin.resourceDirectory})的内容删除成功`)); 
+    callback();
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})下(${origin.resourceDirectory})的内容删除失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}
+//发布资源到远程资源目录下
+function putResourceToOrigin(){
+  const failed=[];
+  const successful=[];
+  ssh.putDirectory(local.resourceDirectory,origin.resourceDirectory,{
+    recursive:true,
+    concurrency:4,
+    tick: function(localPath, remotePath, error) {
+      if (error) {
+        failed.push(localPath)
+      } else {
+        successful.push(localPath)
+      }
+    }
+  }).then((status)=>{
+    if(status){
+      console.log(chalk.green(`发布成功,请访问http://${origin.host}:${nginxConfig.port}`));
+      ssh.dispose();      
+    }else{
+      console.log(chalk.red('发布失败!以下文件未上传成功:'));
+      failed.forEach(item=>{
+        console.log(`${chalk.red('Failed:')} ${item}`);
+      });
+      console.log(chalk.green("正在重新上传..."));
+      putDirectory();
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`文件上传到远程服务器(${origin.host})失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}

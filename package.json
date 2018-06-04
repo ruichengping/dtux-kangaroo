@@ -6,7 +6,12 @@
   "author": "长卿 <changqing@dtstack.com>",
   "license": "MIT",
   "dependencies": {
-    "commander": "^2.15.1"
+    "async": "^2.6.1",
+    "chalk": "^2.4.1",
+    "commander": "^2.15.1",
+    "consolidate": "^0.15.1",
+    "node-ssh": "^5.1.1",
+    "rimraf": "^2.6.2"
   },
   "bin": {
     "roo": "./bin/roo"

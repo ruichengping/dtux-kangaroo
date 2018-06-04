@@ -1,2 +1,87 @@
 #!/usr/bin/env node
-console.log(1);
+
+const program = require('commander');
+const path=require('path');
+const readConfig=require('../utils/readConfig');
+const node_ssh = require('node-ssh');
+const async=require('async');
+const chalk=require('chalk');
+const rm = require('rimraf').sync
+const render=require('consolidate').handlebars.render;
+program
+  .option('-c, --config [config]', 'use specified config')
+  .parse(process.argv);
+
+const{local,origin,nginxConfig}=readConfig(program);
+const defaultNginxConfigTemplate=require('../template/nginx/nginx.template.conf');
+const ssh=new node_ssh();
+const successful=[];
+
+ssh.connect({
+  host:origin.host,
+  username:origin.username,
+  password:origin.password
+}).then(()=>{
+  async.eachSeries([
+    generateNginxConfig,
+    updateNginxConfig,
+    nginxReload
+  ],function(item,next){
+    item(next);
+  });
+}).catch((error)=>{
+  console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
+  console.log(error);
+  ssh.dispose();
+});
+
+//生成nginx配置文件
+function generateNginxConfig(callback){
+  const templateFilePath=local.templateFilePath?local.templateFilePath:defaultNginxConfigTemplate;
+  if(fs.existsSync(local.nginxConfigFilePath)){
+    rm(local.nginxConfigFilePath);
+  }
+  const str=fs.readFileSync(templateFilePath).toString();
+  render(str,nginxConfig,(err,res)=>{
+    if(err){
+      console.log(chalk.red(`本地Nginx配置文件${local.nginxConfigFilePath}生成失败`));
+      console.log(err);
+      ssh.dispose();
+    }else{
+      fs.writeFileSync(local.nginxConfigFilePath,res);
+      console.log(chalk.green(`本地Nginx配置文件${local.nginxConfigFilePath}生成成功`));      
+      callback();
+    }
+  }); 
+}
+//更新nginx配置文件
+function updateNginxConfig(callback){
+  ssh.putFile(local.nginxConfigFilePath,origin.nginxConfigFilePath).then(()=>{
+    console.log(chalk.green(`远程机器(${origin.host})Nginx配置文件更新成功`));
+    if(typeof callback === 'function'){
+      nginxReload();
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`远程机器(${origin.host})Nginx配置文件更新失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}
+
+//nginx热加载
+function nginxReload(){
+  ssh.execCommand(`nginx -s reload`).then((result)=>{
+    const {code,stderr}=result;
+    if(code === 0){
+      console.log(chalk.green(`远程机器(${origin.host})Nginx执行reload操作成功`));
+    }else{
+      console.log(chalk.red(`远程机器(${origin.host})Nginx执行reload操作失败`));
+      console.log(`${chalk.red('Failed:')} ${stderr}`)    
+    }  
+    ssh.dispose();
+  }).catch((error)=>{
+    console.log(chalk.red(`远程机器(${origin.host})Nginx执行reload操作失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}
