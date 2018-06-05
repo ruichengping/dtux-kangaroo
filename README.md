@@ -1,7 +1,7 @@
-# kangaroo
+# dtux-kangaroo
 ## Install
 ```
-npm i kangaroo -g
+npm i dtux-kangaroo -g
 ```
 ## Usage
 
