@@ -1,1 +1,136 @@
 #!/usr/bin/env node
+
+const program = require('commander');
+const path=require('path');
+const node_ssh = require('node-ssh');
+const async=require('async');
+const chalk=require('chalk');
+const {readConfig,checkConfig}=require('../utils/config');
+
+
+program
+  .option('-c, --config [config]', 'use specified config')
+  .parse(process.argv);
+
+const config=readConfig(program);
+
+checkConfig(config,errorList=>{
+  if(!(config.origin&&config.origin.backupDirectory)){
+    errorList.push('origin.backupDirectory');
+  }
+  if(!(config.local&&config.local.resourceDirectory)){
+    errorList.push('local.resourceDirectory');
+  }
+  if(errorList.length>0){
+    console.log(chalk.red('配置文件中缺少以下字段：'));
+    errorList.forEach(error=>{
+      console.log(error);
+    });
+    process.exit();
+  }
+})
+
+const{local,origin,nginxConfig}=config;
+const ssh=new node_ssh();
+
+
+ssh.connect({
+  host:origin.host,
+  username:origin.username,
+  password:origin.password
+}).then(()=>{
+  const originDirectoryName=generateOriginDirectoryName();
+  async.eachSeries([
+    checkOriginResourceDirectory,
+    putFilesToOriginTargetPath
+  ],function(subfunc,next){
+    subfunc(originDirectoryName,next);
+  });
+}).catch((error)=>{
+  console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
+  console.log(error);
+  ssh.dispose();
+});
+
+// 1=>01
+function toTwo(number){
+  if(number>9){
+    return number;
+  }else{
+    return `0${number}`;
+  }
+}
+// 获取当前时间YYYY-MM-DD
+function getCurrentDate(){
+  const date=new Date();
+  const year=date.getFullYear();
+  const month=date.getMonth()+1;
+  const day=date.getDate();
+  return `${year}${toTwo(month)}${toTwo(day)}`;
+}
+//生成远程备份资源目录名称
+function generateOriginDirectoryName(){
+  const name =`${process.env.NODE_ENV==='production'?'production':'test'}_${getCurrentDate()}`;
+  return path.join(origin.backupDirectory,name);
+}
+
+//检测远程备份资源目录
+function checkOriginResourceDirectory(originDirectoryName,callback){
+  ssh.execCommand(`find ${originDirectoryName}`).then((result)=>{
+    const {code}=result;
+    if(code===0){
+      deleteOriginResourceDirectory(originDirectoryName,callback);
+    }else{
+      callback();
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})下(${origin.resourceDirectory})的内容删除失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}
+//删除备份资源目录里面的内容
+function deleteOriginResourceDirectory(originDirectoryName,callback){
+  ssh.execCommand(`rm -rf ${originDirectoryName}`).then((result)=>{
+    console.log(chalk.green(`远程服务器(${origin.host})下(${originDirectoryName})的内容删除成功`)); 
+    if(typeof callback === 'function'){
+      callback();
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})下(${originDirectoryName})的内容删除失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}
+
+//将本地资源上传到远程服务器备份目录下
+function putFilesToOriginTargetPath(originDirectoryName){
+  const failed=[];
+  const successful=[];
+  ssh.putDirectory(local.resourceDirectory,originDirectoryName,{
+    recursive:true,
+    tick: function(localPath, remotePath, error) {
+      if (error) {
+        failed.push(localPath)
+      } else {
+        successful.push(localPath)
+      }
+    }
+  }).then((status)=>{
+    if(status){
+      console.log(chalk.green(`已备份成功到远程服务器(${origin.host})的${originDirectoryName}下`));
+      ssh.dispose();      
+    }else{
+      console.log(chalk.red('备份失败!以下文件未上传成功:'));
+      failed.forEach(item=>{
+        console.log(`${chalk.red('Failed:')} ${item}`);
+      });
+      console.log(chalk.green("正在重新上传..."));
+      putFilesToTargetPath(originDirectoryName);
+    }
+  }).catch((error)=>{
+    console.log(chalk.red(`文件上传到远程服务器(${origin.host})失败`));
+    console.log(error);
+    ssh.dispose();
+  });
+}

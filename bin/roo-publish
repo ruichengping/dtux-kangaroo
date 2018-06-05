@@ -1,17 +1,41 @@
 #!/usr/bin/env node
 
 const program = require('commander');
-const readConfig=require('../utils/readConfig');
 const node_ssh = require('node-ssh');
 const async=require('async');
 const chalk=require('chalk');
+const {readConfig,checkConfig}=require('../utils/config');
+
 
 
 program
   .option('-c, --config [config]', 'use specified config')
   .parse(process.argv);
 
-const{local,origin}=readConfig(program);
+const config=readConfig(program);
+checkConfig(config,(errorList)=>{
+  if(!(config.origin&&config.origin.nginxConfigFilePath)){
+    errorList.push('origin.nginxConfigFilePath');
+  }
+  if(!(config.origin&&config.origin.resourceDirectory)){
+    errorList.push('origin.resourceDirectory');
+  }
+  if(!(config.local&&config.local.resourceDirectory)){
+    errorList.push('local.resourceDirectory');
+  }
+  if(!(config.nginxConfig&&config.nginxConfig.port)){
+    errorList.push('nginxConfig.port');
+  }
+  if(errorList.length>0){
+    console.log(chalk.red('配置文件中缺少以下字段：'));
+    errorList.forEach(error=>{
+      console.log(error);
+    });
+    process.exit();
+  }
+});
+
+const{local,origin,nginxConfig}=config;
 const ssh=new node_ssh();
 
 ssh.connect({
@@ -23,8 +47,8 @@ ssh.connect({
     checkNginxConfig,
     checkOriginResourceDirectory,
     putResourceToOrigin
-  ],function(subfunction,next){
-    subfunction(next);
+  ],function(subfunc,next){
+    subfunc(next);
   })
 }).catch((error)=>{
   console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
@@ -59,7 +83,7 @@ function checkOriginResourceDirectory(callback){
  ssh.execCommand(`find ${origin.resourceDirectory}`).then((result)=>{
     const {code,stderr}=result;
     if(code===0){
-      awadeleteOriginResourceDirectory(callback);
+      deleteOriginResourceDirectory(callback);
     }else{
       callback();
     }
@@ -97,7 +121,7 @@ function putResourceToOrigin(){
     }
   }).then((status)=>{
     if(status){
-      console.log(chalk.green(`发布成功,请访问http://${origin.host}:${nginxConfig.port}`));
+      console.log(chalk.green(`发布成功,请访问 http://${origin.host}:${nginxConfig.port}`));
       ssh.dispose();      
     }else{
       console.log(chalk.red('发布失败!以下文件未上传成功:'));
