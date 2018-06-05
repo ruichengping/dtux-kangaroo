@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "treasure chest",
   "repository": "https://github.com/ruichengping/kangaroo.git",
-  "author": "长卿 <changqing@dtstack.com>",
+  "author": "芮程平 <ruichengping@dtstack.com>",
   "license": "MIT",
   "dependencies": {
     "async": "^2.6.1",
