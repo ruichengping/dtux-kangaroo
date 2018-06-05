@@ -129,7 +129,7 @@ function putResourceToOrigin(){
         console.log(`${chalk.red('Failed:')} ${item}`);
       });
       console.log(chalk.green("正在重新上传..."));
-      putDirectory();
+      putResourceToOrigin();
     }
   }).catch((error)=>{
     console.log(chalk.red(`文件上传到远程服务器(${origin.host})失败`));
