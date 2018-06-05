@@ -1,0 +1,57 @@
+#!/usr/bin/env node
+
+const program=require('commander');
+const node_ssh=require('node-ssh');
+const chalk=require('chalk');
+const {readConfig,checkConfig}=require('../utils/config.js');
+program
+  .option('-c, --config [config]', 'use specified config')
+  .option('-p, --port [port]', 'check is specified port in used')
+  .parse(process.argv);
+
+const config =readConfig(program);
+checkConfig(config,(errorList)=>{
+  if(errorList.length>0){
+    console.log(chalk.red('配置文件中缺少以下字段：'));
+    errorList.forEach(error=>{
+      console.log(error);
+    });
+    process.exit();
+  }
+});
+const {origin}=config;
+const ssh=new node_ssh();
+
+ssh.connect({
+  host:origin.host,
+  username:origin.username,
+  password:origin.password
+}).then(()=>{
+  findPortInUsed();
+}).catch((error)=>{
+  console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
+  console.log(error);
+  ssh.dispose();
+});
+
+
+function findPortInUsed(){
+  const command =program.port?`netstat  -anpt  |grep ${program.port}`:"netstat  -nultp";
+  ssh.execCommand(command).then((result)=>{ 
+    const {code,stderr,stdout}=result;
+    if(code===0){
+      console.log(stdout);
+    }else{
+      if(stderr){
+        console.log(`${chalk.red('Failed:')} ${stderr}`);        
+      }else{
+        console.log(chalk.green(`端口： ${program.port}未被占用`));
+      }
+    }
+    ssh.dispose(); 
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})的端口占用情况获取失败`));
+    console.log(error);   
+    ssh.dispose(); 
+  });
+}

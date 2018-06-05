@@ -5,5 +5,6 @@ require('commander')
   .usage('<command> [options]')
   .command('backup', 'backup resource in history')
   .command('nginx', 'change config about nginx')
+  .command('port', 'find all ports in used')    
   .command('publish', 'publish web application')  
   .parse(process.argv);
