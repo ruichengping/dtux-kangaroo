@@ -40,12 +40,13 @@ function findPortInUsed(){
   ssh.execCommand(command).then((result)=>{ 
     const {code,stderr,stdout}=result;
     if(code===0){
+      console.log(chalk.red(`端口（${program.port}）已被占用`))
       console.log(stdout);
     }else{
       if(stderr){
         console.log(`${chalk.red('Failed:')} ${stderr}`);        
       }else{
-        console.log(chalk.green(`端口： ${program.port}未被占用`));
+        console.log(chalk.green(`端口（${program.port}）未被占用`));
       }
     }
     ssh.dispose(); 

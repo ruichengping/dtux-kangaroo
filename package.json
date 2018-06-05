@@ -1,20 +1,22 @@
 {
-  "name": "kangaroo",
+  "name": "dtux-kangaroo",
   "version": "1.0.0",
   "description": "treasure chest",
   "repository": "https://github.com/ruichengping/kangaroo.git",
-  "author": "芮程平 <ruichengping@dtstack.com>",
+  "author": "ruichengping <819621056@qq.com>",
   "license": "MIT",
   "dependencies": {
     "async": "^2.6.1",
     "chalk": "^2.4.1",
     "commander": "^2.15.1",
     "consolidate": "^0.15.1",
+    "dtux-kangaroo": "^1.0.0",
+    "global": "^4.3.2",
     "handlebars": "^4.0.11",
     "node-ssh": "^5.1.1",
     "rimraf": "^2.6.2"
   },
   "bin": {
-    "roo": "./bin/roo"
+    "roo": "bin/roo"
   }
 }
