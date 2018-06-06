@@ -10,8 +10,6 @@
     "chalk": "^2.4.1",
     "commander": "^2.15.1",
     "consolidate": "^0.15.1",
-    "dtux-kangaroo": "^1.0.0",
-    "global": "^4.3.2",
     "handlebars": "^4.0.11",
     "node-ssh": "^5.1.1",
     "rimraf": "^2.6.2"
