@@ -4,6 +4,7 @@ const program = require('commander');
 const node_ssh = require('node-ssh');
 const async=require('async');
 const chalk=require('chalk');
+const checkVersion=require('../utils/check-version.js');
 const {readConfig,checkConfig}=require('../utils/config');
 
 
@@ -38,22 +39,24 @@ checkConfig(config,(errorList)=>{
 const{local,origin,nginxConfig}=config;
 const ssh=new node_ssh();
 
-ssh.connect({
-  host:origin.host,
-  username:origin.username,
-  password:origin.password
-}).then(()=>{
-  async.eachSeries([
-    checkNginxConfig,
-    checkOriginResourceDirectory,
-    putResourceToOrigin
-  ],function(subfunc,next){
-    subfunc(next);
-  })
-}).catch((error)=>{
-  console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
-  console.log(error);
-  ssh.dispose();
+checkVersion(()=>{
+  ssh.connect({
+    host:origin.host,
+    username:origin.username,
+    password:origin.password
+  }).then(()=>{
+    async.eachSeries([
+      checkNginxConfig,
+      checkOriginResourceDirectory,
+      putResourceToOrigin
+    ],function(subfunc,next){
+      subfunc(next);
+    })
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
+    console.log(error);
+    ssh.dispose();
+  });
 });
 
 

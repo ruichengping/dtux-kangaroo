@@ -3,6 +3,7 @@
 const program=require('commander');
 const node_ssh=require('node-ssh');
 const chalk=require('chalk');
+const checkVersion=require('../utils/check-version.js');
 const {readConfig,checkConfig}=require('../utils/config.js');
 program
   .option('-c, --config [config]', 'use specified config')
@@ -22,16 +23,18 @@ checkConfig(config,(errorList)=>{
 const {origin}=config;
 const ssh=new node_ssh();
 
-ssh.connect({
-  host:origin.host,
-  username:origin.username,
-  password:origin.password
-}).then(()=>{
-  findPortInUsed();
-}).catch((error)=>{
-  console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
-  console.log(error);
-  ssh.dispose();
+checkVersion(()=>{
+  ssh.connect({
+    host:origin.host,
+    username:origin.username,
+    password:origin.password
+  }).then(()=>{
+    findPortInUsed();
+  }).catch((error)=>{
+    console.log(chalk.red(`远程服务器(${origin.host})连接失败`));
+    console.log(error);
+    ssh.dispose();
+  });
 });
 
 
