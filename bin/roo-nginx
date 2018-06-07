@@ -90,7 +90,8 @@ function updateNginxConfig(callback){
 
 //nginx热加载
 function nginxReload(){
-  ssh.execCommand(`nginx -s reload`).then((result)=>{
+  const command=origin.nginxCommandPath?origin.nginxCommandPath:'nginx';
+  ssh.execCommand(`${command} -s reload`).then((result)=>{
     const {code,stderr}=result;
     if(code === 0){
       console.log(chalk.green(`远程服务器(${origin.host})Nginx执行reload操作成功`));
