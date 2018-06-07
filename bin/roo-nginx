@@ -57,7 +57,11 @@ checkVersion(()=>{
 
 //生成nginx配置文件
 function generateNginxConfig(callback){
-  const templateFilePath=local.templateFilePath?local.templateFilePath:defaultNginxConfigTemplate;
+  const templateFilePath=local.nginxConfigTemplate?local.nginxConfigTemplate:defaultNginxConfigTemplate;
+  if(!fs.existsSync(templateFilePath)){
+    console.log(`${chalk.red('配置文件中指定的local.nginxConfigTemplate不存在：')}${templateFilePath}`);
+    process.exit();
+  }
   if(fs.existsSync(local.nginxConfigFilePath)){
     rm(local.nginxConfigFilePath);
   }
